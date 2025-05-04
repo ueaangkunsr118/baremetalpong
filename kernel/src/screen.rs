@@ -25,7 +25,7 @@ pub fn init(buffer: &'static mut FrameBuffer) {
     *unsafe { WRITER.get_mut() } = Some(writer);
 }
 
-const LINE_SPACING: usize = 0;
+const LINE_SPACING: usize = 2; // Increased line spacing for better readability
 
 pub struct ScreenWriter {
     framebuffer: &'static mut [u8],
@@ -82,7 +82,7 @@ impl ScreenWriter {
             '\n' => self.newline(),
             '\r' => self.carriage_return(),
             c => {
-                if let Some(bitmap_char) = get_raster(c, FontWeight::Regular, Size16) {
+                if let Some(bitmap_char) = get_raster(c, FontWeight::Bold, Size16) { // Changed to Bold
                     if self.x_pos + bitmap_char.width() > self.width() {
                         self.newline();
                     }
@@ -120,7 +120,7 @@ impl ScreenWriter {
     }
 
     pub fn draw_char(&mut self, x: usize, y: usize, c: char, r: u8, g: u8, b: u8) {
-        if let Some(bitmap_char) = get_raster(c, FontWeight::Regular, Size16) {
+        if let Some(bitmap_char) = get_raster(c, FontWeight::Bold, Size16) { // Changed to Bold
             for (char_y, row) in bitmap_char.raster().iter().enumerate() {
                 for (char_x, &intensity) in row.iter().enumerate() {
                     if intensity > 0 {
@@ -135,12 +135,12 @@ impl ScreenWriter {
         let mut x_pos = x;
         for c in text.chars() {
             self.draw_char(x_pos, y, c, r, g, b);
-            x_pos += 8;
+            x_pos += 9; // Increased character spacing
         }
     }
 
     pub fn draw_string_centered(&mut self, y: usize, text: &str, r: u8, g: u8, b: u8) {
-        let x = (self.width() - text.len() * 8) / 2;
+        let x = (self.width() - text.len() * 9) / 2; // Adjusted for new character spacing
         self.draw_string(x, y, text, r, g, b);
     }
 
@@ -150,9 +150,9 @@ impl ScreenWriter {
                 self.safe_draw_pixel(
                     self.x_pos + x, 
                     self.y_pos + y,
-                    byte / 4,
+                    byte / 2, // Changed color formula
                     byte,
-                    byte / 2
+                    byte / 1
                 );
             }
         }
