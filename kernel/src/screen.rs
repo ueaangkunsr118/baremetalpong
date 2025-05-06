@@ -82,7 +82,7 @@ impl ScreenWriter {
             '\n' => self.newline(),
             '\r' => self.carriage_return(),
             c => {
-                if let Some(bitmap_char) = get_raster(c, FontWeight::Bold, Size16) { // Changed to Bold
+                if let Some(bitmap_char) = get_raster(c, FontWeight::Regular, Size16) {
                     if self.x_pos + bitmap_char.width() > self.width() {
                         self.newline();
                     }
@@ -120,7 +120,7 @@ impl ScreenWriter {
     }
 
     pub fn draw_char(&mut self, x: usize, y: usize, c: char, r: u8, g: u8, b: u8) {
-        if let Some(bitmap_char) = get_raster(c, FontWeight::Bold, Size16) { // Changed to Bold
+        if let Some(bitmap_char) = get_raster(c, FontWeight::Regular, Size16) {
             for (char_y, row) in bitmap_char.raster().iter().enumerate() {
                 for (char_x, &intensity) in row.iter().enumerate() {
                     if intensity > 0 {
