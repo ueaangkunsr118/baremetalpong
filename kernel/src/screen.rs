@@ -25,7 +25,7 @@ pub fn init(buffer: &'static mut FrameBuffer) {
     *unsafe { WRITER.get_mut() } = Some(writer);
 }
 
-const LINE_SPACING: usize = 2; // Increased line spacing for better readability
+const LINE_SPACING: usize = 0;
 
 pub struct ScreenWriter {
     framebuffer: &'static mut [u8],
@@ -135,12 +135,12 @@ impl ScreenWriter {
         let mut x_pos = x;
         for c in text.chars() {
             self.draw_char(x_pos, y, c, r, g, b);
-            x_pos += 9; // Increased character spacing
+            x_pos += 8;
         }
     }
 
     pub fn draw_string_centered(&mut self, y: usize, text: &str, r: u8, g: u8, b: u8) {
-        let x = (self.width() - text.len() * 9) / 2; // Adjusted for new character spacing
+        let x = (self.width() - text.len() * 8) / 2;
         self.draw_string(x, y, text, r, g, b);
     }
 
@@ -150,9 +150,9 @@ impl ScreenWriter {
                 self.safe_draw_pixel(
                     self.x_pos + x, 
                     self.y_pos + y,
-                    byte / 2, // Changed color formula
+                    byte / 4,
                     byte,
-                    byte / 1
+                    byte / 2
                 );
             }
         }

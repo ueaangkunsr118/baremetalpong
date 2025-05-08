@@ -37,31 +37,31 @@ const BOOTLOADER_CONFIG: BootloaderConfig = {
 entry_point!(kernel_main, config = &BOOTLOADER_CONFIG);
 
 #[derive(PartialEq)]
-enum GameState {
-    TitleScreen,
-    SinglePlayer,
-    MultiPlayer,
-    EndScreen,
+enum GameMode {
+    Menu,
+    OnePlayer,
+    TwoPlayer,
+    GameOver,
 }
 
 struct PongGame {
     ball_x: isize,
     ball_y: isize,
-    ball_speed_x: i8,
-    ball_speed_y: i8,
-    player1_position: isize,
-    player2_position: isize,
-    player1_score: u8,
-    player2_score: u8,
-    arena_width: usize,
-    arena_height: usize,
-    controller_width: usize,
-    controller_height: usize,
+    ball_dx: i8,
+    ball_dy: i8,
+    left_paddle: isize,
+    right_paddle: isize,
+    left_score: u8,
+    right_score: u8,
+    width: usize,
+    height: usize,
+    paddle_width: usize,
+    paddle_height: usize,
     ball_size: usize,
-    game_state: GameState,
-    menu_selection: usize,
-    speed_cap: i8,
-    champion: Option<&'static str>,
+    game_mode: GameMode,
+    selected_menu_item: usize,
+    max_ball_speed: i8,
+    winner: Option<&'static str>,
 }
 
 impl PongGame {
@@ -69,148 +69,148 @@ impl PongGame {
         PongGame {
             ball_x: (width / 2) as isize,
             ball_y: (height / 2) as isize,
-            ball_speed_x: 70,
-            ball_speed_y: 70,
-            player1_position: (height / 2) as isize,
-            player2_position: (height / 2) as isize,
-            player1_score: 0,
-            player2_score: 0,
-            arena_width: width,
-            arena_height: height,
-            controller_width: 15,
-            controller_height: 80,
+            ball_dx: 70,
+            ball_dy: 70,
+            left_paddle: (height / 2) as isize,
+            right_paddle: (height / 2) as isize,
+            left_score: 0,
+            right_score: 0,
+            width,
+            height,
+            paddle_width: 15,
+            paddle_height: 80,
             ball_size: 15,
-            game_state: GameState::TitleScreen,
-            menu_selection: 0,
-            speed_cap: 127,
-            champion: None,
+            game_mode: GameMode::Menu,
+            selected_menu_item: 0,
+            max_ball_speed: 127,
+            winner: None,
         }
     }
 
     fn update(&mut self) {
-        if self.game_state != GameState::SinglePlayer && self.game_state != GameState::MultiPlayer {
+        if self.game_mode != GameMode::OnePlayer && self.game_mode != GameMode::TwoPlayer {
             return;
         }
 
         // Check for winner
-        if self.player1_score >= 3 {
-            self.game_state = GameState::EndScreen;
-            self.champion = Some("PLAYER 1 VICTORIOUS!");
+        if self.left_score >= 3 {
+            self.game_mode = GameMode::GameOver;
+            self.winner = Some("PLAYER 1 WINS!");
             return;
-        } else if self.player2_score >= 3 {
-            self.game_state = GameState::EndScreen;
-            self.champion = Some(
-                if self.game_state == GameState::SinglePlayer {
-                    "AI VICTORIOUS!"
+        } else if self.right_score >= 3 {
+            self.game_mode = GameMode::GameOver;
+            self.winner = Some(
+                if self.game_mode == GameMode::OnePlayer {
+                    "CPU WINS!"
                 } else {
-                    "PLAYER 2 VICTORIOUS!"
+                    "PLAYER 2 WINS!"
                 }
             );
             return;
         }
 
         // Move ball
-        self.ball_x += self.ball_speed_x as isize;
-        self.ball_y += self.ball_speed_y as isize;
+        self.ball_x += self.ball_dx as isize;
+        self.ball_y += self.ball_dy as isize;
 
         // Wall collisions
         if self.ball_y <= 0 {
             self.ball_y = 0;
-            self.ball_speed_y = self.ball_speed_y.abs();
-        } else if self.ball_y >= (self.arena_height - self.ball_size) as isize {
-            self.ball_y = (self.arena_height - self.ball_size) as isize;
-            self.ball_speed_y = -self.ball_speed_y.abs();
+            self.ball_dy = self.ball_dy.abs();
+        } else if self.ball_y >= (self.height - self.ball_size) as isize {
+            self.ball_y = (self.height - self.ball_size) as isize;
+            self.ball_dy = -self.ball_dy.abs();
         }
 
         // AI for single player
-        if self.game_state == GameState::SinglePlayer {
-            let controller_center = self.player2_position + (self.controller_height / 2) as isize;
-            let ball_future_y = self.ball_y + (self.ball_speed_y as isize * 2);
+        if self.game_mode == GameMode::OnePlayer {
+            let paddle_center = self.right_paddle + (self.paddle_height / 2) as isize;
+            let ball_future_y = self.ball_y + (self.ball_dy as isize * 2);
             
-            if controller_center < ball_future_y - 5 {
-                self.player2_position = (self.player2_position + 25).min((self.arena_height - self.controller_height) as isize);
-            } else if controller_center > ball_future_y + 5 {
-                self.player2_position = (self.player2_position - 25).max(0);
+            if paddle_center < ball_future_y - 5 {
+                self.right_paddle = (self.right_paddle + 25).min((self.height - self.paddle_height) as isize);
+            } else if paddle_center > ball_future_y + 5 {
+                self.right_paddle = (self.right_paddle - 25).max(0);
             }
         }
 
         // Paddle collisions
-        if self.ball_x <= self.controller_width as isize {
-            if self.ball_y + self.ball_size as isize >= self.player1_position && 
-               self.ball_y <= self.player1_position + self.controller_height as isize {
-                self.ball_speed_x = (self.ball_speed_x.abs() + 5).min(self.speed_cap);
-                self.ball_speed_y += (chaos_number() % 7) - 3;
+        if self.ball_x <= self.paddle_width as isize {
+            if self.ball_y + self.ball_size as isize >= self.left_paddle && 
+               self.ball_y <= self.left_paddle + self.paddle_height as isize {
+                self.ball_dx = (self.ball_dx.abs() + 5).min(self.max_ball_speed);
+                self.ball_dy += (fast_rand() % 7) - 3;
             } else {
-                self.player2_score += 1;
+                self.right_score += 1;
                 self.reset_ball();
             }
-        } else if self.ball_x >= (self.arena_width - self.controller_width - self.ball_size) as isize {
-            if self.ball_y + self.ball_size as isize >= self.player2_position && 
-               self.ball_y <= self.player2_position + self.controller_height as isize {
-                self.ball_speed_x = -((self.ball_speed_x.abs() + 5).min(self.speed_cap));
-                self.ball_speed_y += (chaos_number() % 7) - 3;
+        } else if self.ball_x >= (self.width - self.paddle_width - self.ball_size) as isize {
+            if self.ball_y + self.ball_size as isize >= self.right_paddle && 
+               self.ball_y <= self.right_paddle + self.paddle_height as isize {
+                self.ball_dx = -((self.ball_dx.abs() + 5).min(self.max_ball_speed));
+                self.ball_dy += (fast_rand() % 7) - 3;
             } else {
-                self.player1_score += 1;
+                self.left_score += 1;
                 self.reset_ball();
             }
         }
 
         // Speed limits
-        self.ball_speed_x = self.ball_speed_x.clamp(-self.speed_cap, self.speed_cap);
-        self.ball_speed_y = self.ball_speed_y.clamp(-self.speed_cap, self.speed_cap);
+        self.ball_dx = self.ball_dx.clamp(-self.max_ball_speed, self.max_ball_speed);
+        self.ball_dy = self.ball_dy.clamp(-self.max_ball_speed, self.max_ball_speed);
     }
 
     fn reset_ball(&mut self) {
-        self.ball_x = (self.arena_width / 2) as isize;
-        self.ball_y = (self.arena_height / 2) as isize;
-        self.ball_speed_x = if chaos_number() % 2 == 0 { 100 } else { -100 };
-        self.ball_speed_y = (chaos_number() % 15) - 7;
+        self.ball_x = (self.width / 2) as isize;
+        self.ball_y = (self.height / 2) as isize;
+        self.ball_dx = if fast_rand() % 2 == 0 { 100 } else { -100 };
+        self.ball_dy = (fast_rand() % 15) - 7;
     }
 
-    fn move_player1(&mut self, up: bool) {
-        if self.game_state == GameState::EndScreen {
+    fn move_left_paddle(&mut self, up: bool) {
+        if self.game_mode == GameMode::GameOver {
             return;
         }
         let move_amount = 25;
-        self.player1_position = if up {
-            (self.player1_position - move_amount).max(0)
+        self.left_paddle = if up {
+            (self.left_paddle - move_amount).max(0)
         } else {
-            (self.player1_position + move_amount).min((self.arena_height - self.controller_height) as isize)
+            (self.left_paddle + move_amount).min((self.height - self.paddle_height) as isize)
         };
     }
 
-    fn move_player2(&mut self, up: bool) {
-        if self.game_state == GameState::EndScreen {
+    fn move_right_paddle(&mut self, up: bool) {
+        if self.game_mode == GameMode::GameOver {
             return;
         }
         let move_amount = 25;
-        self.player2_position = if up {
-            (self.player2_position - move_amount).max(0)
+        self.right_paddle = if up {
+            (self.right_paddle - move_amount).max(0)
         } else {
-            (self.player2_position + move_amount).min((self.arena_height - self.controller_height) as isize)
+            (self.right_paddle + move_amount).min((self.height - self.paddle_height) as isize)
         };
     }
 
     fn handle_menu_input(&mut self, key: DecodedKey) {
         match key {
             DecodedKey::Unicode('w') => {
-                self.menu_selection = self.menu_selection.saturating_sub(1);
+                self.selected_menu_item = self.selected_menu_item.saturating_sub(1);
             }
             DecodedKey::Unicode('s') => {
-                if self.menu_selection < 1 {
-                    self.menu_selection += 1;
+                if self.selected_menu_item < 1 {
+                    self.selected_menu_item += 1;
                 }
             }
             DecodedKey::Unicode('\n') => {
-                self.game_state = match self.menu_selection {
-                    0 => GameState::SinglePlayer,
-                    1 => GameState::MultiPlayer,
-                    _ => GameState::SinglePlayer,
+                self.game_mode = match self.selected_menu_item {
+                    0 => GameMode::OnePlayer,
+                    1 => GameMode::TwoPlayer,
+                    _ => GameMode::OnePlayer,
                 };
                 self.reset_ball();
-                self.player1_score = 0;
-                self.player2_score = 0;
-                self.champion = None;
+                self.left_score = 0;
+                self.right_score = 0;
+                self.winner = None;
             }
             _ => {}
         }
@@ -218,81 +218,81 @@ impl PongGame {
 
     fn draw(&self) {
         let mut writer = screenwriter();
-        writer.clear_screen(0, 0, 20); // Dark blue background
+        writer.clear_screen(0, 0, 0);
 
-        match self.game_state {
-            GameState::TitleScreen => {
-                writer.draw_string_centered(self.arena_height / 2 - 80, "NEON PONG ARENA", 0x20, 0xff, 0xd0);
+        match self.game_mode {
+            GameMode::Menu => {
+                writer.draw_string_centered(self.height / 2 - 60, "ULTRA PONG", 0xff, 0xff, 0xff);
                 writer.draw_string_centered(
-                    self.arena_height / 2 - 20,
-                    if self.menu_selection == 0 { "> SINGLE PLAYER <" } else { "  SINGLE PLAYER  " },
-                    0x50, 0xf0, 0xff
+                    self.height / 2 - 20,
+                    if self.selected_menu_item == 0 { "> 1 PLAYER <" } else { "  1 PLAYER  " },
+                    0xff, 0xff, 0xff
                 );
                 writer.draw_string_centered(
-                    self.arena_height / 2,
-                    if self.menu_selection == 1 { "> VERSUS MODE <" } else { "  VERSUS MODE  " },
-                    0x50, 0xf0, 0xff
+                    self.height / 2,
+                    if self.selected_menu_item == 1 { "> 2 PLAYERS <" } else { "  2 PLAYERS  " },
+                    0xff, 0xff, 0xff
                 );
-                writer.draw_string_centered(self.arena_height / 2 + 40, "CONTROL SCHEME:", 0x55, 0xff, 0x99);
-                writer.draw_string_centered(self.arena_height / 2 + 60, "PLAYER 1: W/S KEYS", 0x99, 0xcc, 0xff);
-                writer.draw_string_centered(self.arena_height / 2 + 80, "PLAYER 2: I/K KEYS", 0xff, 0x99, 0xcc);
-                writer.draw_string_centered(self.arena_height / 2 + 120, "BEST OF 3 WINS THE MATCH!", 0xff, 0xff, 0x75);
-                writer.draw_string_centered(self.arena_height / 2 + 140, "NAVIGATE: W/S TO SELECT", 0xff, 0x75, 0x75);
-                writer.draw_string_centered(self.arena_height / 2 + 160, "PRESS ENTER TO BEGIN", 0x75, 0xff, 0x75);
+                writer.draw_string_centered(self.height / 2 + 40, "CONTROLS:", 0x55, 0xff, 0x55);
+                writer.draw_string_centered(self.height / 2 + 60, "PLAYER 1: W/S KEYS", 0xaa, 0xaa, 0xff);
+                writer.draw_string_centered(self.height / 2 + 80, "PLAYER 2: I/K KEYS", 0xff, 0xaa, 0xaa);
+                writer.draw_string_centered(self.height / 2 + 120, "FIRST TO 3 POINTS WINS!", 0xff, 0xff, 0x55);
+                writer.draw_string_centered(self.height / 2 + 140, "MENU: W/S TO SELECT", 0xff, 0x55, 0x55);
+                writer.draw_string_centered(self.height / 2 + 160, "ENTER TO START", 0x55, 0xff, 0x55);
             }
-            GameState::EndScreen => {
-                if let Some(winner) = self.champion {
-                    writer.draw_string_centered(self.arena_height / 2 - 40, winner, 0xff, 0xff, 0x75);
+            GameMode::GameOver => {
+                if let Some(winner) = self.winner {
+                    writer.draw_string_centered(self.height / 2 - 40, winner, 0xff, 0xff, 0x55);
                 }
-                writer.draw_string_centered(self.arena_height / 2, "MATCH COMPLETE", 0xff, 0x75, 0x75);
-                writer.draw_string_centered(self.arena_height / 2 + 40, "FINAL SCORE:", 0xff, 0xff, 0xff);
-                let score_text = format!("{} - {}", self.player1_score, self.player2_score);
-                writer.draw_string_centered(self.arena_height / 2 + 70, &score_text, 0xff, 0xff, 0xff);
-                writer.draw_string_centered(self.arena_height / 2 + 120, "PRESS ENTER TO RETURN TO MENU", 0x75, 0xff, 0xff);
+                writer.draw_string_centered(self.height / 2, "GAME OVER", 0xff, 0x55, 0x55);
+                writer.draw_string_centered(self.height / 2 + 40, "FINAL SCORE:", 0xff, 0xff, 0xff);
+                let score_text = format!("{} - {}", self.left_score, self.right_score);
+                writer.draw_string_centered(self.height / 2 + 70, &score_text, 0xff, 0xff, 0xff);
+                writer.draw_string_centered(self.height / 2 + 120, "PRESS ENTER TO RETURN TO MENU", 0x55, 0xff, 0xff);
             }
             _ => {
                 // Draw paddles
-                for y in self.player1_position as usize..(self.player1_position + self.controller_height as isize) as usize {
-                    for x in 0..self.controller_width {
-                        writer.safe_draw_pixel(x, y, 0x50, 0xf0, 0xff);
+                for y in self.left_paddle as usize..(self.left_paddle + self.paddle_height as isize) as usize {
+                    for x in 0..self.paddle_width {
+                        writer.safe_draw_pixel(x, y, 0xff, 0xff, 0xff);
                     }
                 }
-                for y in self.player2_position as usize..(self.player2_position + self.controller_height as isize) as usize {
-                    for x in self.arena_width - self.controller_width..self.arena_width {
-                        writer.safe_draw_pixel(x, y, 0xff, 0x50, 0xf0);
+                for y in self.right_paddle as usize..(self.right_paddle + self.paddle_height as isize) as usize {
+                    for x in self.width - self.paddle_width..self.width {
+                        writer.safe_draw_pixel(x, y, 0xff, 0xff, 0xff);
                     }
                 }
 
                 // Draw ball
                 for y in self.ball_y as usize..(self.ball_y + self.ball_size as isize) as usize {
                     for x in self.ball_x as usize..(self.ball_x + self.ball_size as isize) as usize {
-                        writer.safe_draw_pixel(x, y, 0xff, 0xff, 0x50);
+                        writer.safe_draw_pixel(x, y, 0xff, 0xff, 0xff);
                     }
                 }
 
                 // Draw center line
-                for y in (0..self.arena_height).step_by(20) {
-                    writer.safe_draw_pixel(self.arena_width / 2, y, 0x80, 0x80, 0x80);
+                for y in (0..self.height).step_by(20) {
+                    writer.safe_draw_pixel(self.width / 2, y, 0x55, 0x55, 0x55);
                 }
 
                 // Draw scores
-                let score_text = format!("{} - {}", self.player1_score, self.player2_score);
+                let score_text = format!("{} - {}", self.left_score, self.right_score);
                 writer.draw_string_centered(20, &score_text, 0xff, 0xff, 0xff);
                 
                 // Draw speed indicator
-                let speed = self.ball_speed_x.abs().max(self.ball_speed_y.abs());
-                let speed_text = format!("SPEED: {}/{}", speed, self.speed_cap);
-                writer.draw_string(10, 10, &speed_text, 0x75, 0xff, 0x75);
+                let speed = self.ball_dx.abs().max(self.ball_dy.abs());
+                let speed_text = format!("SPEED: {}/{}", speed, self.max_ball_speed);
+                writer.draw_string(10, 10, &speed_text, 0x55, 0xff, 0x55);
             }
         }
     }
 }
 
-fn chaos_number() -> i8 {
-    static mut ENTROPY: u32 = 42;
+fn fast_rand() -> i8 {
+    static mut SEED: u32 = 42;
     unsafe {
-        ENTROPY = ENTROPY.wrapping_mul(1664525).wrapping_add(1013904223);
-        (ENTROPY >> 16) as i8
+        SEED = SEED.wrapping_mul(1664525).wrapping_add(1013904223);
+        (SEED >> 16) as i8
     }
 }
 
@@ -303,29 +303,29 @@ lazy_static! {
 fn handle_keyboard_input(key: DecodedKey) {
     let mut game = GAME_STATE.lock();
     
-    match game.game_state {
-        GameState::TitleScreen => game.handle_menu_input(key),
-        GameState::SinglePlayer => match key {
-            DecodedKey::Unicode('w') => game.move_player1(true),
-            DecodedKey::Unicode('s') => game.move_player1(false),
-            DecodedKey::Unicode('\n') if game.game_state == GameState::EndScreen => {
-                game.game_state = GameState::TitleScreen;
+    match game.game_mode {
+        GameMode::Menu => game.handle_menu_input(key),
+        GameMode::OnePlayer => match key {
+            DecodedKey::Unicode('w') => game.move_left_paddle(true),
+            DecodedKey::Unicode('s') => game.move_left_paddle(false),
+            DecodedKey::Unicode('\n') if game.game_mode == GameMode::GameOver => {
+                game.game_mode = GameMode::Menu;
             }
             _ => (),
         },
-        GameState::MultiPlayer => match key {
-            DecodedKey::Unicode('w') => game.move_player1(true),
-            DecodedKey::Unicode('s') => game.move_player1(false),
-            DecodedKey::Unicode('i') => game.move_player2(true),
-            DecodedKey::Unicode('k') => game.move_player2(false),
-            DecodedKey::Unicode('\n') if game.game_state == GameState::EndScreen => {
-                game.game_state = GameState::TitleScreen;
+        GameMode::TwoPlayer => match key {
+            DecodedKey::Unicode('w') => game.move_left_paddle(true),
+            DecodedKey::Unicode('s') => game.move_left_paddle(false),
+            DecodedKey::Unicode('i') => game.move_right_paddle(true),
+            DecodedKey::Unicode('k') => game.move_right_paddle(false),
+            DecodedKey::Unicode('\n') if game.game_mode == GameMode::GameOver => {
+                game.game_mode = GameMode::Menu;
             }
             _ => (),
         },
-        GameState::EndScreen => {
+        GameMode::GameOver => {
             if let DecodedKey::Unicode('\n') = key {
-                game.game_state = GameState::TitleScreen;
+                game.game_mode = GameMode::Menu;
             }
         }
     }
@@ -375,7 +375,7 @@ fn kernel_main(boot_info: &'static mut BootInfo) -> ! {
         .keyboard(handle_keyboard_input)
         .timer(update_game)
         .startup(|| {
-            writeln!(Writer, "Neon Pong Arena Initialized!").unwrap();
+            writeln!(Writer, "Pong Game Initialized!").unwrap();
         })
         .start(lapic_ptr)
 }
